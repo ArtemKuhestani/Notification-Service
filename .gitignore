@@ -5,12 +5,29 @@ node_modules/
 
 # Testing
 coverage/
+tests/reports/
+tests/.pytest_cache/
+tests/__pycache__/
+.pytest_cache/
+__pycache__/
+*.pyc
+.coverage
+htmlcov/
+.tox/
+.nox/
+
+# Python virtual environment
+venv/
+.venv/
+env/
+.env.test
 
 # Build output
 dist/
 build/
 target/
 *.jar
+*.egg-info/
 
 # Environment files
 .env
