@@ -1,0 +1,74 @@
+version: '3.8'
+
+services:
+  # PostgreSQL Database
+  postgres:
+    image: postgres:15-alpine
+    container_name: notification-db
+    environment:
+      POSTGRES_DB: notification_service
+      POSTGRES_USER: postgres
+      POSTGRES_PASSWORD: postgres
+    ports:
+      - "5432:5432"
+    volumes:
+      - postgres_data:/var/lib/postgresql/data
+      - ./backend/src/main/resources/db/schema.sql:/docker-entrypoint-initdb.d/01-schema.sql:ro
+      - ./backend/src/main/resources/db/data.sql:/docker-entrypoint-initdb.d/02-data.sql:ro
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U postgres -d notification_service"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+    networks:
+      - notification-network
+
+  # Spring Boot Backend
+  backend:
+    build:
+      context: ./backend
+      dockerfile: Dockerfile
+    container_name: notification-backend
+    depends_on:
+      postgres:
+        condition: service_healthy
+    environment:
+      SPRING_DATASOURCE_URL: jdbc:postgresql://postgres:5432/notification_service
+      SPRING_DATASOURCE_USERNAME: postgres
+      SPRING_DATASOURCE_PASSWORD: postgres
+      MAIL_USERNAME: ${MAIL_USERNAME:-your-email@gmail.com}
+      MAIL_PASSWORD: ${MAIL_PASSWORD:-your-app-password}
+      MAIL_FROM: ${MAIL_FROM:-noreply@notification-service.com}
+      JWT_SECRET: ${JWT_SECRET:-notification-service-secret-key-for-jwt-tokens-minimum-256-bits-required}
+    ports:
+      - "8080:8080"
+    volumes:
+      - backend_logs:/app/logs
+    healthcheck:
+      test: ["CMD", "wget", "-q", "--spider", "http://localhost:8080/api/v1/health"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+    networks:
+      - notification-network
+
+  # React Frontend (Admin Panel)
+  frontend:
+    build:
+      context: ./frontend
+      dockerfile: Dockerfile
+    container_name: notification-frontend
+    depends_on:
+      - backend
+    ports:
+      - "3000:80"
+    networks:
+      - notification-network
+
+volumes:
+  postgres_data:
+  backend_logs:
+
+networks:
+  notification-network:
+    driver: bridge
